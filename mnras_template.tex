@@ -63,14 +63,13 @@
 
 % Title of the paper, and the short title which is used in the headers.
 % Keep the title short and informative.
-\title[Variational inference in cosmology]{Setting a good {\tt XSample}: speeding up cosmological parameter inference}
+\title[Importance sampling with normalizing flows]{Rapidly combining cosmological probes with importance sampling and normalizing flows }
 
 % The list of authors, and the short list which is used in the headers.
 % If you need two or more lines of authors, add an extra line using \newauthor
 \author[B. Thorne]{
 B. Thorne,$^{1}$\thanks{E-mail: blthorne@ucdavis.edu}
-#L. Knox,$^{1}$
-#M. Meiers. $^{1}$
+L. Knox,$^{1}$
 \\
 % List of institutions
 $^{1}$Department of Physics, University of California, One Shields Avenue, Davis, CA 95616, USA\\
@@ -105,76 +104,79 @@ keyword1 -- keyword2 -- keyword3
 
 \section{Introduction}
 
+\begin{itemize}
+    \item Difficulty of importance sampling in datasets with poor coverage of true posterior
+    \item General applicability to Bayesian inference: MCMC techniques etc
+\end{itemize}
 
-\section{Variational Inference}
+\section{Methods}
 
 \subsection{Normalizing Flows}
 \label{sec:normalizing_flows} % used for referring to this section from elsewhere
 
-The topic of normalizing flows has gained much attention in recent years for its ability to model extremely complicated posterior distributions in terms of simple, tractable base distributions. The motivation is to construct a simple distribution $q(z)$, such as a multivariate Gaussian, take samples from this distribution, and apply to these samples a series of $n$ invertible tranformations $f(z)$, such that the $n^{\rm th}$ iterate has a distribution given by $\log q(z^n) = \log q(z) - \product_{i=1}^n |\frac{\partial f}{\partial z}|$
+Normalizing flows have gained much attention in recent years for their ability to model extremely complicated posterior distributions in terms of simple, tractable base distributions. Typically, they have been applied in the machine learning community to model the distributions of complicated datasets such as natural images \cite{ho/etal:2019, grathwohl/etal:2018, kingma/dhariwal:2018}, video \cite{kumar/etal:2019}, and audio \cite{kim/etal:2018}. In the rest of this section we will introduce the formalism of normalizing flows, for additional details we refer readers to reviews of this subject \cite{kobyzev/etal:2019, papamakarios/etal:2019}.
 
+The central idea is to start with a simple distribution $q_z(z)$, take samples from this distribution $z$, and apply a series of $n$ transformations $f_i(z)$ with $i\in n$, such that the $n^{\rm th}$ iterate is given by $x = f_n \circ f_{n-1} \circ \dots \circ f_1(z)$. For this overall transformation to be a \emph{flow} we require the individual transformations to be both differentiable and invertible, a consequence of which is that their composition will also be differentiable and invertible.
 
+One can think of these transformations as stretching and shaping the simple space in order to fit a more complicated distribution. The details of this stretching and shaping are encoded the determinant of the transformations, $J_{f_i}(z)$. The log likelihood of $x$ can be written in terms of the Jacobians of the individual transformations by a change of variables:
 \begin{equation}
-    x=\frac{-b\pm\sqrt{b^2-4ac}}{2a}.
-	\label{eq:quadratic}
+\label{eq:log_prob}
+    \log q_x(x) = \log q_z(f^{-1}(x)) - \sum_{i=1}^n \log | \det J_f(f^{-1}(x)) |.
 \end{equation}
+For a given flow, $f$, this formalism allows us to perform two tasks:
+\begin{itemize}
+\item[i)] we can sample $x$ by first sampling $z \sim p(z)$ and pushing this through the transformation: $x = f(z)$, 
+\item[ii)] Evaluating the log probability for a given $x$, which requires calculating the inverse transformation $z = f^{-1}(x)$ as well as the log determinant of the Jacobian in Equation \ref{eq:log_prob}, and the log probability of the base distribution $q(z)$.  
+\end{itemize}
 
-Refer back to them as e.g. equation~(\ref{eq:quadratic}).
+The choice of a multivariate Gaussian base distribution makes the sampling and evaluation of $q(z)$ trivial. However, the choice of $f$ involves trade-offs, as it is non-trivial to find transformations that permit efficient evaluations of the Jacobian, whilst also having fast forward and reverse directions. The application being pursued will determine which of these properties is prioritized \cite{papamakarios/etal:2019}.
 
-\subsection{Figures and tables}
+It is a common choice to model $f$ with a neural network, with some weights $\theta$, and we use the notation $q_x(x; \theta)$ to denote the resulting model for the distribution of $x$.
 
-Figures and tables should be placed at logical positions in the text. Don't
-worry about the exact layout, which will be handled by the publishers.
-
-Figures are referred to as e.g. Fig.~\ref{fig:example_figure}, and tables as
-e.g. Table~\ref{tab:example_table}.
-
-% Example figure
-\begin{figure*}
-	% To include a figure from a file named example.*
-	% Allowable file formats are eps or ps if compiling using latex
-	% or pdf, png, jpg if compiling using pdflatex
-	\includegraphics[]{./densities/corner.pdf}
-    \caption{This is an example figure. Captions appear below each figure.
-	Give enough detail for the reader to understand what they're looking at,
-	but leave detailed discussion to the main body of the text.}
-    \label{fig:example_figure}
-\end{figure*}
-
-% Example table
-\begin{table}
-	\centering
-	\caption{This is an example table. Captions appear above each table.
-	Remember to define the quantities, symbols and units used.}
-	\label{tab:example_table}
-	\begin{tabular}{lccr} % four columns, alignment for each
-		\hline
-		A & B & C & D\\
-		\hline
-		1 & 2 & 3 & 4\\
-		2 & 4 & 6 & 8\\
-		3 & 5 & 7 & 9\\
-		\hline
-	\end{tabular}
-\end{table}
+\begin{itemize}
+\item[i)] Describe planar and radial flows, NICE architectures, MADE, MAF, and IAF
+\item[ii)] Explain parametrization we chose and maximization objective.
+\end{itemize}
+\subsection{Importance Sampling}
+\label{sec:importance_sampling}
 
 
-\section{Conclusions}
 
-The last numbered section should briefly summarise what has been done, and describe
-the final conclusions which the authors draw from their work.
+\section{Data \& Training}
+\label{sec:data}
+We will apply this technique to a combination of Planck and BAO data. In order to demonstrate the potential speedups involved, we first fit a normalizing flow to the 
+
+\subsection{CMB Data}
+
+
+We use a publicly available posterior MCMC chain {\tt Plik\_TTTEEE\_lowl+lowE}, which we download from the Planck Legacy Archive \footnote{\url{https://pla.esac.esa.int/#home}}
+
+\subsection{BAO Data}
+\label{sec:bao_data}
+
+Baryon acoustic oscillations (BAOs) provide a \emph{standard ruler} that may be used to measure the expansion history of the Universe. At recombination, acoustic waves travelling through the photon-baryon plasma are frozen into the matter distribution, defining a characteristic scale that is present both in the CMB, and in the low-redshift distribution of galaxies. 
+
+This characteristic scale shows up as a sharp feature in the correlation function of galaxies at the comoving sound horizon scale, $r_s$, or as an oscillatory feature in their power spectrum, well above the virialization scale at which non-linear physics becomes important. The measurement of the BAO scale therefore provides a robust model-independent measurement of the expansion rate and angular diameter distance as a function of redshift. 
+
+BAO measurements are fequently used in conjunction with CMB datasets because they break key parameter degeneracies 
+
+\section{Results}
+\label{sec:results}
+
+
+\section{Conclusions \& Discussion}
+\label{sec:conclusions}
+
 
 \section*{Acknowledgements}
 
-The Acknowledgements section is not numbered. Here you can thank helpful
-colleagues, acknowledge funding agencies, telescopes and facilities used etc.
-Try to keep it short.
+We acknowledge the use of the GPU allocation at NERSC.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section*{Data Availability}
 
  
-The inclusion of a Data Availability Statement is a requirement for articles published in MNRAS. Data Availability Statements provide a standardised format for readers to understand the availability of data underlying the research results described in the article. The statement may refer to original data generated in the course of the study or to third-party data analysed in the article. The statement should describe and provide means of access, where possible, by linking to the data or providing the required accession numbers for the relevant databases or DOIs.
+All the data used in this study is available on the Planck Legacy Archive: \url{https://pla.esac.esa.int/#home}.
 
 
 
@@ -184,7 +186,7 @@ The inclusion of a Data Availability Statement is a requirement for articles pub
 % The best way to enter references is to use BibTeX:
 
 \bibliographystyle{mnras}
-\bibliography{example} % if your bibtex file is called example.bib
+\bibliography{library} % if your bibtex file is called example.bib
 
 
 % Alternatively you could enter them by hand, like this:
